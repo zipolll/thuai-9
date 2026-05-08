@@ -3,7 +3,14 @@ import logging
 import os
 
 from sdk_python.agent import Agent
-from sdk_python.models import GameState, MarketState, News, PlayerState, Prediction, StrategyOptions
+from sdk_python.models import (
+    GameState,
+    MarketState,
+    News,
+    PlayerState,
+    Prediction,
+    StrategyOptions,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,7 +23,9 @@ class MyAgent(Agent):
         self._last_order_tick = -999
 
     async def on_game_state(self, state: GameState):
-        logging.info(f"Game: {state.stage} Day={state.current_day} Tick={state.current_tick}")
+        logging.info(
+            f"Game: {state.stage} Day={state.current_day} Tick={state.current_tick}"
+        )
 
     async def on_market_state(self, state: MarketState):
         if state.tick - self._last_order_tick < 25:

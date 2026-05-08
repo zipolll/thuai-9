@@ -1,8 +1,13 @@
-import asyncio
+"""High-level asynchronous client for the THUAI websocket protocol."""
+
+from __future__ import annotations
+
 import json
 import logging
+from collections.abc import Mapping
+from typing import Any, TypeAlias
 
-from websockets.asyncio.client import connect
+from websockets import connect
 
 from .models import (
     CardOption,
@@ -20,78 +25,109 @@ from .models import (
     TradeNotification,
 )
 
+JsonObject: TypeAlias = Mapping[str, Any]
+OutgoingMessage: TypeAlias = dict[str, Any]
+
 logger = logging.getLogger("thuai")
 
 
-class Agent:
-    def __init__(self, token: str, server_url: str = "ws://localhost:14514"):
+class Agent:  # pylint: disable=too-many-instance-attributes
+    """Stateful websocket agent that sends actions and tracks server snapshots."""
+
+    def __init__(self, token: str, server_url: str = "ws://localhost:14514") -> None:
         self.token = token
         self.server_url = server_url
-        self._ws = None
+        self._ws: Any | None = None
 
-        # Current state (updated automatically)
+        # Current state is refreshed automatically as snapshots arrive.
         self.game_state = GameState()
         self.market_state = MarketState()
         self.player_state = PlayerState()
         self.latest_news: News | None = None
         self.strategy_options: StrategyOptions | None = None
 
-    async def connect(self):
+    async def connect(self) -> None:
+        """Open the websocket connection and register with a sentinel cancel."""
+
         self._ws = await connect(self.server_url)
-        logger.info(f"Connected to {self.server_url}")
+        logger.info("Connected to %s", self.server_url)
         await self.cancel_order(-1)
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
+        """Close the websocket connection if it is currently open."""
+
         if self._ws:
             await self._ws.close()
 
     # --- Actions ---
 
-    async def limit_buy(self, price: int, quantity: int):
-        await self._send({
-            "messageType": "LIMIT_BUY",
-            "token": self.token,
-            "price": price,
-            "quantity": quantity,
-        })
+    async def limit_buy(self, price: int, quantity: int) -> None:
+        """Submit a limit buy order."""
 
-    async def limit_sell(self, price: int, quantity: int):
-        await self._send({
-            "messageType": "LIMIT_SELL",
-            "token": self.token,
-            "price": price,
-            "quantity": quantity,
-        })
+        await self._send(
+            {
+                "messageType": "LIMIT_BUY",
+                "token": self.token,
+                "price": price,
+                "quantity": quantity,
+            }
+        )
 
-    async def cancel_order(self, order_id: int):
-        await self._send({
-            "messageType": "CANCEL_ORDER",
-            "token": self.token,
-            "orderId": order_id,
-        })
+    async def limit_sell(self, price: int, quantity: int) -> None:
+        """Submit a limit sell order."""
 
-    async def submit_report(self, news_id: int, prediction: Prediction):
-        await self._send({
-            "messageType": "SUBMIT_REPORT",
-            "token": self.token,
-            "newsId": news_id,
-            "prediction": prediction.value,
-        })
+        await self._send(
+            {
+                "messageType": "LIMIT_SELL",
+                "token": self.token,
+                "price": price,
+                "quantity": quantity,
+            }
+        )
 
-    async def select_strategy(self, card_name: str):
-        await self._send({
-            "messageType": "SELECT_STRATEGY",
-            "token": self.token,
-            "cardName": card_name,
-        })
+    async def cancel_order(self, order_id: int) -> None:
+        """Cancel an existing order by identifier."""
+
+        await self._send(
+            {
+                "messageType": "CANCEL_ORDER",
+                "token": self.token,
+                "orderId": order_id,
+            }
+        )
+
+    async def submit_report(self, news_id: int, prediction: Prediction) -> None:
+        """Submit a research report for a published news item."""
+
+        await self._send(
+            {
+                "messageType": "SUBMIT_REPORT",
+                "token": self.token,
+                "newsId": news_id,
+                "prediction": prediction.value,
+            }
+        )
+
+    async def select_strategy(self, card_name: str) -> None:
+        """Choose a strategy card during the strategy-selection stage."""
+
+        await self._send(
+            {
+                "messageType": "SELECT_STRATEGY",
+                "token": self.token,
+                "cardName": card_name,
+            }
+        )
 
     async def activate_skill(
         self,
         skill_name: str,
         target_token: str | None = None,
         variant: str | None = None,
-    ):
-        msg: dict = {
+    ) -> None:
+        """Activate a skill, optionally targeting a player or variant."""
+
+        msg: OutgoingMessage = {
             "messageType": "ACTIVATE_SKILL",
             "token": self.token,
             "skillName": skill_name,
@@ -104,8 +140,9 @@ class Agent:
 
     # --- Event Loop ---
 
-    async def run(self):
-        """Main loop: connect, receive messages, dispatch to handlers."""
+    async def run(self) -> None:
+        """Connect, consume server messages, and dispatch callbacks."""
+
         await self.connect()
         try:
             async for raw in self._ws:
@@ -115,50 +152,54 @@ class Agent:
                     self._update_state(msg_type, data)
                     await self._dispatch(msg_type, data)
                 except json.JSONDecodeError:
-                    logger.warning(f"Invalid JSON: {raw}")
-                except Exception as e:
-                    logger.error(f"Error handling message: {e}")
-        except Exception as e:
-            logger.error(f"Connection error: {e}")
+                    logger.warning("Invalid JSON: %s", raw)
+                except Exception as exc:  # pylint: disable=broad-exception-caught
+                    logger.error("Error handling message: %s", exc)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Connection error: %s", exc)
         finally:
             await self.disconnect()
 
     # --- Override these in your agent ---
 
-    async def on_game_state(self, state: GameState):
-        pass
+    async def on_game_state(self, state: GameState) -> None:
+        """Handle a new game-state snapshot."""
 
-    async def on_market_state(self, state: MarketState):
-        pass
+    async def on_market_state(self, state: MarketState) -> None:
+        """Handle a new market-state snapshot."""
 
-    async def on_player_state(self, state: PlayerState):
-        pass
+    async def on_player_state(self, state: PlayerState) -> None:
+        """Handle a new player-state snapshot."""
 
-    async def on_news(self, news: News):
-        pass
+    async def on_news(self, news: News) -> None:
+        """Handle a newly published news item."""
 
-    async def on_report_result(self, result: ReportResult):
-        pass
+    async def on_report_result(self, result: ReportResult) -> None:
+        """Handle the settlement result of a submitted report."""
 
-    async def on_strategy_options(self, options: StrategyOptions):
-        pass
+    async def on_strategy_options(self, options: StrategyOptions) -> None:
+        """Handle the current strategy card choices."""
 
-    async def on_trade(self, trade: TradeNotification):
-        pass
+    async def on_trade(self, trade: TradeNotification) -> None:
+        """Handle a trade execution notification."""
 
-    async def on_skill_effect(self, effect: SkillEffect):
-        pass
+    async def on_skill_effect(self, effect: SkillEffect) -> None:
+        """Handle a skill effect broadcast."""
 
-    async def on_error(self, code: int, message: str):
-        pass
+    async def on_error(self, code: int, message: str) -> None:
+        """Handle an error message from the server."""
 
     # --- Internal ---
 
-    async def _send(self, data: dict):
+    async def _send(self, data: OutgoingMessage) -> None:
+        """Serialize and send a client action payload."""
+
         if self._ws:
             await self._ws.send(json.dumps(data))
 
-    def _update_state(self, msg_type: str, data: dict):
+    def _update_state(self, msg_type: str, data: JsonObject) -> None:
+        """Refresh cached state from an inbound snapshot message."""
+
         if msg_type == "GAME_STATE":
             self.game_state = _parse_game_state(data)
         elif msg_type == "MARKET_STATE":
@@ -170,7 +211,9 @@ class Agent:
         elif msg_type == "STRATEGY_OPTIONS":
             self.strategy_options = _parse_strategy_options(data)
 
-    async def _dispatch(self, msg_type: str, data: dict):
+    async def _dispatch(self, msg_type: str, data: JsonObject) -> None:
+        """Invoke the public callback that matches an inbound message type."""
+
         if msg_type == "GAME_STATE":
             await self.on_game_state(self.game_state)
         elif msg_type == "MARKET_STATE":
@@ -194,10 +237,12 @@ class Agent:
 # --- Parsers ---
 
 
-def _parse_game_state(data: dict) -> GameState:
+def _parse_game_state(data: JsonObject) -> GameState:
+    """Convert a wire-format game-state payload into a SDK model."""
+
     scores = [
-        PlayerScore(s["token"], s["score"])
-        for s in data.get("scores", []) or []
+        PlayerScore(score["token"], score["score"])
+        for score in data.get("scores", []) or []
     ]
     return GameState(
         stage=data.get("stage", ""),
@@ -209,14 +254,16 @@ def _parse_game_state(data: dict) -> GameState:
     )
 
 
-def _parse_market_state(data: dict) -> MarketState:
+def _parse_market_state(data: JsonObject) -> MarketState:
+    """Convert a wire-format market-state payload into a SDK model."""
+
     bids = [
-        PriceLevel(b["price"], b["quantity"])
-        for b in data.get("bids", []) or []
+        PriceLevel(level["price"], level["quantity"])
+        for level in data.get("bids", []) or []
     ]
     asks = [
-        PriceLevel(a["price"], a["quantity"])
-        for a in data.get("asks", []) or []
+        PriceLevel(level["price"], level["quantity"])
+        for level in data.get("asks", []) or []
     ]
     return MarketState(
         bids=bids,
@@ -228,19 +275,21 @@ def _parse_market_state(data: dict) -> MarketState:
     )
 
 
-def _parse_player_state(data: dict) -> PlayerState:
+def _parse_player_state(data: JsonObject) -> PlayerState:
+    """Convert a wire-format player-state payload into a SDK model."""
+
     orders = [
         OrderInfo(
-            o["orderId"],
-            o.get("arrivalTick", 0),
-            o["side"],
-            o["price"],
-            o["quantity"],
-            o["remainingQuantity"],
-            o["status"],
-            o.get("intent", ""),
+            order["orderId"],
+            order.get("arrivalTick", 0),
+            order["side"],
+            order["price"],
+            order["quantity"],
+            order["remainingQuantity"],
+            order["status"],
+            order.get("intent", ""),
         )
-        for o in data.get("pendingOrders", []) or []
+        for order in data.get("pendingOrders", []) or []
     ]
     return PlayerState(
         mora=data.get("mora", 0),
@@ -259,7 +308,9 @@ def _parse_player_state(data: dict) -> PlayerState:
     )
 
 
-def _parse_news(data: dict) -> News:
+def _parse_news(data: JsonObject) -> News:
+    """Convert a wire-format news payload into a SDK model."""
+
     return News(
         data.get("month", 0),
         data.get("day", 0),
@@ -269,7 +320,9 @@ def _parse_news(data: dict) -> News:
     )
 
 
-def _parse_report_result(data: dict) -> ReportResult:
+def _parse_report_result(data: JsonObject) -> ReportResult:
+    """Convert a wire-format report-result payload into a SDK model."""
+
     return ReportResult(
         data.get("newsId", 0),
         data.get("submissionRank", 0),
@@ -282,11 +335,19 @@ def _parse_report_result(data: dict) -> ReportResult:
     )
 
 
-def _parse_strategy_options(data: dict) -> StrategyOptions:
-    def parse_card(d):
-        if not d:
+def _parse_strategy_options(data: JsonObject) -> StrategyOptions:
+    """Convert a wire-format strategy-options payload into a SDK model."""
+
+    def parse_card(card: JsonObject | None) -> CardOption | None:
+        """Parse a single card entry if it is present."""
+
+        if not card:
             return None
-        return CardOption(d.get("name", ""), d.get("description", ""), d.get("category", ""))
+        return CardOption(
+            card.get("name", ""),
+            card.get("description", ""),
+            card.get("category", ""),
+        )
 
     return StrategyOptions(
         parse_card(data.get("infrastructure")),
@@ -295,7 +356,9 @@ def _parse_strategy_options(data: dict) -> StrategyOptions:
     )
 
 
-def _parse_trade(data: dict) -> TradeNotification:
+def _parse_trade(data: JsonObject) -> TradeNotification:
+    """Convert a wire-format trade-notification payload into a SDK model."""
+
     return TradeNotification(
         data.get("tradeId", 0),
         data.get("orderId", 0),
@@ -306,7 +369,9 @@ def _parse_trade(data: dict) -> TradeNotification:
     )
 
 
-def _parse_skill_effect(data: dict) -> SkillEffect:
+def _parse_skill_effect(data: JsonObject) -> SkillEffect:
+    """Convert a wire-format skill-effect payload into a SDK model."""
+
     return SkillEffect(
         data.get("skillName", ""),
         data.get("sourcePlayer", ""),

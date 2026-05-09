@@ -15,6 +15,8 @@ using thuai::protocol::parseSkillEffect;
 using thuai::protocol::parseStrategyOptions;
 using nlohmann::json;
 
+namespace {
+// NOLINTBEGIN
 TEST_CASE("protocol builders serialize outbound actions") {
     json limit_buy = buildLimitBuyMessage("player-1", 1050, 3);
     CHECK(limit_buy["messageType"] == "LIMIT_BUY");
@@ -160,3 +162,5 @@ TEST_CASE("strategy and skill parsers handle optional fields") {
     CHECK_FALSE(effect.targetPlayer.has_value());
     CHECK(effect.description == "Protected against one loss");
 }
+// NOLINTEND
+} // namespace

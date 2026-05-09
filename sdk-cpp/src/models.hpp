@@ -1,20 +1,22 @@
 #pragma once
+
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
-#include <optional>
 
 namespace thuai {
 
 struct PriceLevel {
-    long price = 0;
+    std::int64_t price = 0;
     int quantity = 0;
 };
 
 struct OrderInfo {
-    long orderId = 0;
+    std::int64_t orderId = 0;
     int arrivalTick = 0;
     std::string side;
-    long price = 0;
+    std::int64_t price = 0;
     int quantity = 0;
     int remainingQuantity = 0;
     std::string status;
@@ -44,19 +46,19 @@ struct GameState {
 struct MarketState {
     std::vector<PriceLevel> bids;
     std::vector<PriceLevel> asks;
-    long lastPrice = 0;
-    long midPrice = 0;
+    std::int64_t lastPrice = 0;
+    std::int64_t midPrice = 0;
     int volume = 0;
     int tick = 0;
 };
 
 struct PlayerState {
-    long mora = 0;
-    long frozenMora = 0;
+    std::int64_t mora = 0;
+    std::int64_t frozenMora = 0;
     int gold = 0;
     int frozenGold = 0;
     int lockedGold = 0;
-    long nav = 0;
+    std::int64_t nav = 0;
     int networkDelay = 0;
     int immediateOrdersUsedToday = 0;
     int restingOrdersUsedToday = 0;
@@ -81,8 +83,8 @@ struct ReportResult {
     int settlementTick = 0;
     std::string prediction;
     bool isCorrect = false;
-    long reward = 0;
-    long actualChange = 0;
+    std::int64_t reward = 0;
+    std::int64_t actualChange = 0;
 };
 
 struct StrategyOptions {
@@ -92,12 +94,12 @@ struct StrategyOptions {
 };
 
 struct TradeNotification {
-    long tradeId = 0;
-    long orderId = 0;
-    long price = 0;
+    std::int64_t tradeId = 0;
+    std::int64_t orderId = 0;
+    std::int64_t price = 0;
     int quantity = 0;
     std::string side;
-    long fee = 0;
+    std::int64_t fee = 0;
 };
 
 struct SkillEffect {
@@ -109,8 +111,8 @@ struct SkillEffect {
 
 enum class Prediction { Long, Short, Hold };
 
-inline std::string predictionToString(Prediction p) {
-    switch (p) {
+inline auto predictionToString(Prediction prediction) -> std::string {
+    switch (prediction) {
         case Prediction::Long: return "Long";
         case Prediction::Short: return "Short";
         case Prediction::Hold: return "Hold";

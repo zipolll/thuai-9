@@ -21,6 +21,10 @@ The binary is built to `bin/agent`.
 TOKEN=player1 SERVER=ws://localhost:14514 ./bin/agent
 ```
 
+Set `SPDLOG_LEVEL=debug` to see raw inbound/outbound payloads and other low-level transport logs.
+
+If `TOKEN` or `SERVER` is unset, pass `--token` and `--server` on the command line.
+
 ### Docker
 
 ```bash
@@ -32,49 +36,33 @@ docker run -e TOKEN=player1 -e SERVER=ws://server:14514 thuai9-agent
 
 ## Building Your Agent
 
-Subclass `thuai::Agent` and override the event handlers:
+Edit [`src/logic.cpp`](./src/logic.cpp). The bootstrap in `src/main.cpp` stays fixed, so competitors only need to work in one file.
 
 ```cpp
-#include "agent.hpp"
-#include <cstdlib>
+#include "logic.hpp"
 
-class MyAgent : public thuai::Agent {
+#include <memory>
+
+#include <spdlog/spdlog.h>
+
+namespace {
+
+class MyAgent final : public thuai::Agent {
 public:
     using Agent::Agent;
 
     void onMarketState(const thuai::MarketState& state) override {
-        if (!state.bids.empty() && !state.asks.empty()) {
-            long spread = state.asks[0].price - state.bids[0].price;
-            if (spread > 5 && playerState.gold > 0) {
-                limitSell(state.asks[0].price, 1);
-            }
-        }
-    }
-
-    void onNews(const thuai::News& news) override {
-        std::cout << "News: " << news.content << std::endl;
-        submitReport(news.newsId, thuai::Prediction::Long);
-    }
-
-    void onStrategyOptions(const thuai::StrategyOptions& options) override {
-        if (options.finTech) {
-            selectStrategy(options.finTech->name);
-        } else if (options.infrastructure) {
-            selectStrategy(options.infrastructure->name);
+        if (!state.asks.empty() && playerState.mora >= state.asks.front().price) {
+            spdlog::info("Buying one unit at {}", state.asks.front().price);
+            limitBuy(state.asks.front().price, 1);
         }
     }
 };
 
-int main() {
-    const char* token = std::getenv("TOKEN");
-    const char* server = std::getenv("SERVER");
+} // namespace
 
-    MyAgent agent(
-        token ? token : "player1",
-        server ? server : "ws://localhost:14514"
-    );
-    agent.run();
-    return 0;
+auto createAgent(std::string token, std::string serverUrl) -> std::unique_ptr<thuai::Agent> {
+    return std::make_unique<MyAgent>(std::move(token), std::move(serverUrl));
 }
 ```
 
@@ -84,7 +72,7 @@ int main() {
 
 ### `thuai::Agent`
 
-Header-only base class. Connects via WebSocket, dispatches events.
+Header-only base class. Connects via WebSocket, dispatches events, keeps the latest snapshots, and emits structured logs with `spdlog`.
 
 #### Auto-Tracked State
 
@@ -107,7 +95,7 @@ void selectStrategy(const std::string& cardName);
 void activateSkill(const std::string& skillName, const std::string& direction = "");
 ```
 
-#### Event Handlers (virtual, override)
+#### Event Handlers (virtual, override what you need)
 
 ```cpp
 virtual void onGameState(const GameState&);
@@ -120,6 +108,8 @@ virtual void onTrade(const TradeNotification&);
 virtual void onSkillEffect(const SkillEffect&);
 virtual void onError(int code, const std::string& message);
 ```
+
+All callbacks default to no-op implementations, so your strategy only needs to override the events it actually uses.
 
 #### Run
 
@@ -186,9 +176,10 @@ Passive cards take effect automatically.
 
 ## Dependencies
 
-- **C++17**
+- **C++23**
 - **ixwebsocket** — WebSocket client
 - **nlohmann/json** — JSON parsing
+- **spdlog** — Structured logging
 
 Both are pulled in automatically by XMake.
 
@@ -199,7 +190,9 @@ Both are pulled in automatically by XMake.
 ```plain
 sdk-cpp/
 ├── src/
-│   ├── main.cpp        # Example agent
+│   ├── main.cpp        # Bootstrap + logging config
+│   ├── logic.cpp       # Your strategy goes here
+│   ├── logic.hpp       # Strategy factory declaration
 │   ├── agent.hpp       # Agent base class (header-only)
 │   └── models.hpp      # Data structures
 ├── xmake.lua

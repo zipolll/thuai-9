@@ -156,7 +156,7 @@ jobs:
           dotnet-version: 9.0.x
 
       - run: |
-          dotnet publish src -c Release -o bin --sc false \
+          dotnet publish src/thuai -c Release -o bin --sc false \
           -r ${{ matrix.runtime }} \
           -p:DebugType=none \
           -p:PublishSingleFile=true \
@@ -196,7 +196,7 @@ jobs:
           dotnet-version: 9.0.x
 
       - run: |
-          dotnet test test
+          dotnet test
         working-directory: server
 
   server-check-test-coverage:
@@ -216,12 +216,12 @@ jobs:
           dotnet-version: 9.0.x
 
       - run: |
-          dotnet test test --collect:"XPlat Code Coverage"
+          dotnet test --collect:"XPlat Code Coverage"
         working-directory: server
 
       - name: Check coverage threshold
         run: |
-          coverage=$(grep -o 'line-rate="[^"]*"' server/test/TestResults/*/coverage.cobertura.xml | head -1 | cut -d'"' -f2)
+          coverage=$(grep -o 'line-rate="[^"]*"' server/test/thuai.Tests/TestResults/*/coverage.cobertura.xml | head -1 | cut -d'"' -f2)
           coverage=$(echo "$coverage*100" | bc)
           if (( $(echo "$coverage < 90" | bc -l) )); then
             echo "Code coverage is below 90%: $coverage%"
@@ -240,6 +240,6 @@ jobs:
           dotnet-version: 9.0.x
 
       - run: |
-          dotnet format --verify-no-changes src
-          dotnet format --verify-no-changes test
+          dotnet format --verify-no-changes src/thuai
+          dotnet format --verify-no-changes test/thuai.Tests
         working-directory: server

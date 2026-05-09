@@ -64,6 +64,12 @@ public class Program
                         Token = e.Token
                     });
             };
+            // AgentServer -> AdminCommandHandler: debug commands from admin sockets
+            agentServer.AfterAdminMessageEvent += (sender, e) =>
+            {
+                var response = AdminCommandHandler.Handle(gameController.Game, e.Message);
+                agentServer.PublishToSocket(response, e.SocketId);
+            };
 
             // Game -> Broadcast + Record: after each tick
             gameController.Game.AfterGameTickEvent += (sender, e) =>

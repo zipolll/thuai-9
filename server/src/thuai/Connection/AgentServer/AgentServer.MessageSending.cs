@@ -33,6 +33,16 @@ public partial class AgentServer
         }
     }
 
+    // Publish a message addressed to a single socket id (used for debug
+    // responses that should go back to the admin who issued the command).
+    public void PublishToSocket(Message message, Guid socketId)
+    {
+        if (_socketMessageSendingQueue.TryGetValue(socketId, out var queue))
+        {
+            queue.Enqueue(message);
+        }
+    }
+
     // Publish a private message addressed to a specific player by token.
     // Delivered to the player's bound socket plus every admin socket
     // (admins observe everything for debugging).

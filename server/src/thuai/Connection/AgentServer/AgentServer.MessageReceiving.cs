@@ -60,12 +60,34 @@ public partial class AgentServer
             "SUBMIT_REPORT" => JsonSerializer.Deserialize<SubmitReportMessage>(rawText),
             "SELECT_STRATEGY" => JsonSerializer.Deserialize<SelectStrategyMessage>(rawText),
             "ACTIVATE_SKILL" => JsonSerializer.Deserialize<ActivateSkillMessage>(rawText),
+            "DEBUG_QUERY" => JsonSerializer.Deserialize<DebugQueryMessage>(rawText),
+            "DEBUG_GIVE_CARD" => JsonSerializer.Deserialize<DebugGiveCardMessage>(rawText),
+            "DEBUG_INJECT_NEWS" => JsonSerializer.Deserialize<DebugInjectNewsMessage>(rawText),
+            "DEBUG_ADVANCE_STAGE" => JsonSerializer.Deserialize<DebugAdvanceStageMessage>(rawText),
+            "DEBUG_SET_PLAYER" => JsonSerializer.Deserialize<DebugSetPlayerMessage>(rawText),
             _ => null
         };
 
         if (message == null)
         {
             Log.Warning("Unknown or invalid messageType: {MessageType} from {SocketId}", messageType, socketId);
+            return;
+        }
+
+        // Route DEBUG_* messages through the admin channel — only honoured from
+        // sockets that authenticated as admin via HELLO.
+        if (messageType?.StartsWith("DEBUG_") == true)
+        {
+            if (!_socketRoles.TryGetValue(socketId, out var debugRole) || debugRole != SocketRole.Admin)
+            {
+                Log.Warning("Rejecting {MessageType} from non-admin socket {SocketId}", messageType, socketId);
+                return;
+            }
+            AfterAdminMessageEvent?.Invoke(this, new AfterAdminMessageEventArgs
+            {
+                SocketId = socketId,
+                Message = message
+            });
             return;
         }
 

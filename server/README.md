@@ -1,10 +1,33 @@
-# THUAI-9 Server (璃月黄金交易所)
+# THUAI-9 Server
 
 The game server for the 9th Tsinghua University AI Challenge — a gold trading exchange simulation where two AI agents compete as institutional traders across 3 trading days.
 
 ---
 
-## Quick Start
+## Run Executable
+
+The server will read `config` and `data` folder to get configuration file and store replay data. If they don't exist, the server will create them with a default configuration file.
+
+The server will get all available tokens by reading from environment variables, which is not convenient for competitor's testing and debugging. To get tokens from file, change the configuration file's `token` options. For example:
+
+```json
+{
+  ...
+  "token": {
+    "loadTokenFromEnv": false,
+    "tokenLocation": "TOKENS",
+    "tokenDelimiter": ","
+  }
+  ...
+}
+```
+
+Then server will get all possible tokens from `TOKENS` file using a comma as delimiter.
+
+After game is finished, a replay file and a result file are generated, OVERWRITING the previous one!!! If you still need previous
+
+
+## Quick Start with Code (Some Information is Outdated!!)
 
 ### Run with Docker
 

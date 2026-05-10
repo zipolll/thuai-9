@@ -453,7 +453,4 @@ public class Program
 
         recorder.Record(snapshot);
     }
-
-    // Keep this for backward compatibility with tests
-    public static int Add(int a, int b) => a + b;
 }

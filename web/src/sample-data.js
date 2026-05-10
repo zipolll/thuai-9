@@ -100,7 +100,7 @@ export function buildSampleMessages(role = "observer") {
       messages.push({
         messageType: "NEWS_BROADCAST",
         newsId: 7,
-        content: "层岩巨渊运输线临时管制，黄金现货供给预期收紧。",
+        content: "矿井深处发现爱吃金属的稀有怪兽，开采被迫暂停，黄金生产成本翻倍",
         publishTick: tick,
       });
     }
@@ -109,7 +109,7 @@ export function buildSampleMessages(role = "observer") {
       messages.push({
         messageType: "NEWS_BROADCAST",
         newsId: 8,
-        content: "飞云商会称黄金运输恢复，部分现货报价松动。",
+        content: "满载黄金的船队因顺风提前抵达，码头工位被金砖填满，供应彻底饱和",
         publishTick: tick,
         isFake: true,
         sourcePlayer: "player2",

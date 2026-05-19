@@ -1,4 +1,5 @@
 import { applyColorScheme, COLOR_SCHEMES, readAppliedPalette } from "./appearance.js";
+import { DEFAULT_LOCALHOST_PORT, DEFAULT_SERVER_URL, parseServerChoice } from "./connection.js";
 import { unreadNewsCount } from "./store.js";
 
 const PLACEHOLDER = '<p class="placeholder">暂无数据</p>';
@@ -165,16 +166,21 @@ function renderConnection(state) {
 }
 
 function renderControls(state) {
-  const portInput = document.getElementById("portInput");
+  const serverPresetSelect = document.getElementById("serverPresetSelect");
+  const localhostPortInput = document.getElementById("localhostPortInput");
   const tokenInput = document.getElementById("tokenInput");
   const adminSecretInput = document.getElementById("adminSecretInput");
   const priceModeSelect = document.getElementById("priceModeSelect");
   const intervalSelect = document.getElementById("intervalSelect");
   const colorSchemeSelect = document.getElementById("colorSchemeSelect");
+  const serverChoice = parseServerChoice(state.connection.server || DEFAULT_SERVER_URL);
 
-  if (portInput && document.activeElement !== portInput) {
-    const match = state.connection.server.match(/:(\d+)$/);
-    portInput.value = match ? match[1] : "14514";
+  setInputValue(serverPresetSelect, serverChoice.mode);
+  if (localhostPortInput && document.activeElement !== localhostPortInput) {
+    localhostPortInput.value = state.connection.localhostPort || serverChoice.localhostPort || DEFAULT_LOCALHOST_PORT;
+  }
+  if (localhostPortInput) {
+    localhostPortInput.disabled = serverChoice.mode !== "localhost";
   }
   setInputValue(tokenInput, state.connection.token);
   setInputValue(adminSecretInput, state.connection.adminSecret);

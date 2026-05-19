@@ -56,6 +56,7 @@
 ## 通用字段语义
 
 - `token`：选手标识。
+- `playerId`：服务端分配给选手的公开数字编号，可安全用于公共比分和展示。
 - `price`：整数摩拉价格。
 - `quantity`：整数黄金数量。
 - `currentMonth`：当前月份，范围 `1..3`。
@@ -205,8 +206,8 @@
   "currentTick": 345,
   "totalTicks": 30,
   "scores": [
-    { "token": "player1", "score": 1 },
-    { "token": "player2", "score": 0 }
+    { "playerId": 0, "score": 1 },
+    { "playerId": 1, "score": 0 }
   ]
 }
 ```
@@ -220,7 +221,7 @@
 | `currentDay` | number | 当前月内交易日 |
 | `currentTick` | number | 全局 tick |
 | `totalTicks` | number | 当前实现固定为 `30` |
-| `scores` | array | 当前比分 |
+| `scores` | array | 当前比分，按 `playerId` 返回 |
 
 ### MARKET_STATE
 

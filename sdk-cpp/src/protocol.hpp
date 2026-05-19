@@ -12,6 +12,20 @@ namespace thuai::protocol {
 
 using json = nlohmann::json;
 
+inline auto buildHelloMessage(
+    const std::string& token, const std::string& role = "player",
+    const std::optional<std::string>& adminSecret = std::nullopt) -> json {
+  json message = {
+      {"messageType", "HELLO"},
+      {"token", token},
+      {"role", role},
+  };
+  if (adminSecret.has_value()) {
+    message["adminSecret"] = *adminSecret;
+  }
+  return message;
+}
+
 inline auto buildLimitBuyMessage(const std::string& token, std::int64_t price,
                                  int quantity) -> json {
   return {{"messageType", "LIMIT_BUY"},
@@ -75,7 +89,7 @@ inline auto parseGameState(const json& data) -> GameState {
   if (data.contains("scores") && data["scores"].is_array()) {
     for (const auto& scoreEntry : data["scores"]) {
       PlayerScore playerScore;
-      playerScore.token = scoreEntry.value("token", "");
+      playerScore.playerId = scoreEntry.value("playerId", 0);
       playerScore.score = scoreEntry.value("score", 0);
       state.scores.push_back(playerScore);
     }
@@ -212,6 +226,47 @@ inline auto parseSkillEffect(const json& data) -> SkillEffect {
   }
   skillEffect.description = data.value("description", "");
   return skillEffect;
+}
+
+inline auto parseDaySettlement(const json& data) -> DaySettlement {
+  DaySettlement settlement;
+  settlement.day = data.value("day", 0);
+  settlement.month = data.value("month", 0);
+  settlement.winnerToken = data.value("winnerToken", "");
+  settlement.reason = data.value("reason", "");
+  settlement.finalBonusWinnerToken = data.value("finalBonusWinnerToken", "");
+  settlement.finalBonusPoints = data.value("finalBonusPoints", 0);
+
+  if (data.contains("players") && data["players"].is_array()) {
+    for (const auto& playerEntry : data["players"]) {
+      DaySettlementPlayer player;
+      player.token = playerEntry.value("token", "");
+      player.nav = playerEntry.value("nav", std::int64_t{0});
+      player.mora = playerEntry.value("mora", std::int64_t{0});
+      player.gold = playerEntry.value("gold", 0);
+      player.frozenMora = playerEntry.value("frozenMora", std::int64_t{0});
+      player.frozenGold = playerEntry.value("frozenGold", 0);
+      player.lockedGold = playerEntry.value("lockedGold", 0);
+      player.tradeCount = playerEntry.value("tradeCount", 0);
+      if (playerEntry.contains("activeCards")
+          && playerEntry["activeCards"].is_array()) {
+        for (const auto& cardValue : playerEntry["activeCards"]) {
+          if (cardValue.is_string()) {
+            player.activeCards.push_back(cardValue.get<std::string>());
+          }
+        }
+      }
+      settlement.players.push_back(std::move(player));
+    }
+  }
+
+  if (data.contains("cumulativeNavs") && data["cumulativeNavs"].is_object()) {
+    for (const auto& [token, navValue] : data["cumulativeNavs"].items()) {
+      settlement.cumulativeNavs[token] = navValue.get<std::int64_t>();
+    }
+  }
+
+  return settlement;
 }
 
 }  // namespace thuai::protocol

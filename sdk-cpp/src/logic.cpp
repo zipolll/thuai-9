@@ -20,10 +20,12 @@ class MyAgent final : public thuai::Agent {
   }
 
   void onMarketState(const thuai::MarketState& state) override {
-    if (state.tick - lastOrderTick_ < kOrderCooldownTicks) {
+    const int currentTick =
+        gameState.currentTick > 0 ? gameState.currentTick : state.tick;
+    if (currentTick - lastOrderTick_ < kOrderCooldownTicks) {
       spdlog::debug(
           "Skipping market tick {} because cooldown has {} ticks remaining",
-          state.tick, kOrderCooldownTicks - (state.tick - lastOrderTick_));
+          state.tick, kOrderCooldownTicks - (currentTick - lastOrderTick_));
       return;
     }
 
@@ -33,7 +35,7 @@ class MyAgent final : public thuai::Agent {
           "Selling into best bid price={} quantity=1 availableGold={} nav={}",
           bestBid.price, playerState.gold, playerState.nav);
       limitSell(bestBid.price, 1);
-      lastOrderTick_ = state.tick;
+      lastOrderTick_ = currentTick;
       return;
     }
 
@@ -43,7 +45,7 @@ class MyAgent final : public thuai::Agent {
           "Buying from best ask price={} quantity=1 availableMora={} nav={}",
           bestAsk.price, playerState.mora, playerState.nav);
       limitBuy(bestAsk.price, 1);
-      lastOrderTick_ = state.tick;
+      lastOrderTick_ = currentTick;
       return;
     }
 
@@ -78,21 +80,29 @@ class MyAgent final : public thuai::Agent {
   }
 
   void onStrategyOptions(const thuai::StrategyOptions& options) override {
+    if (lastStrategySelectionMonth_ == gameState.currentMonth) {
+      spdlog::debug("Strategy already selected for month {}", gameState.currentMonth);
+      return;
+    }
+
     if (options.infrastructure.has_value()) {
       spdlog::info("Selecting infrastructure card {}",
                    options.infrastructure->name);
+      lastStrategySelectionMonth_ = gameState.currentMonth;
       selectStrategy(options.infrastructure->name);
       return;
     }
 
     if (options.riskControl.has_value()) {
       spdlog::info("Selecting risk-control card {}", options.riskControl->name);
+      lastStrategySelectionMonth_ = gameState.currentMonth;
       selectStrategy(options.riskControl->name);
       return;
     }
 
     if (options.finTech.has_value()) {
       spdlog::info("Selecting fin-tech card {}", options.finTech->name);
+      lastStrategySelectionMonth_ = gameState.currentMonth;
       selectStrategy(options.finTech->name);
       return;
     }
@@ -115,6 +125,13 @@ class MyAgent final : public thuai::Agent {
                  effect.targetPlayer.value_or("none"), effect.description);
   }
 
+  void onDaySettlement(const thuai::DaySettlement& settlement) override {
+    spdlog::info(
+        "Settlement: month={} day={} winner={} reason={} players={}",
+        settlement.month, settlement.day, settlement.winnerToken,
+        settlement.reason, settlement.players.size());
+  }
+
   void onError(int code, const std::string& message) override {
     spdlog::error("Server error code={} message={}", code, message);
   }
@@ -122,6 +139,7 @@ class MyAgent final : public thuai::Agent {
  private:
   static constexpr int kOrderCooldownTicks = 25;
   int lastOrderTick_ = -999;
+  int lastStrategySelectionMonth_ = -1;
 };
 
 }  // namespace

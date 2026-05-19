@@ -79,6 +79,7 @@ class Agent {
   PlayerState playerState{};
   std::optional<News> latestNews{};
   std::optional<StrategyOptions> strategyOptions{};
+  std::optional<DaySettlement> latestDaySettlement{};
 
   // --- Event Handlers (override what you need) ---
   virtual void onGameState(const GameState&) {}
@@ -89,6 +90,7 @@ class Agent {
   virtual void onStrategyOptions(const StrategyOptions&) {}
   virtual void onTrade(const TradeNotification&) {}
   virtual void onSkillEffect(const SkillEffect&) {}
+  virtual void onDaySettlement(const DaySettlement&) {}
   virtual void onError(int, const std::string&) {}
 
   // --- Run ---
@@ -105,7 +107,7 @@ class Agent {
 
           if (msg->type == ix::WebSocketMessageType::Open) {
             spdlog::info("Connected to {}", serverUrl_);
-            cancelOrder(-1);
+            send(protocol::buildHelloMessage(token_));
             return;
           }
 
@@ -220,6 +222,13 @@ class Agent {
             effect.skillName, effect.sourcePlayer,
             effect.targetPlayer.value_or("none"), effect.description);
         onSkillEffect(effect);
+      } else if (msgType == "DAY_SETTLEMENT") {
+        latestDaySettlement = protocol::parseDaySettlement(data);
+        spdlog::debug(
+            "Parsed day settlement month={} day={} winner={} players={}",
+            latestDaySettlement->month, latestDaySettlement->day,
+            latestDaySettlement->winnerToken, latestDaySettlement->players.size());
+        onDaySettlement(*latestDaySettlement);
       } else if (msgType == "ERROR") {
         const int code = data.value("errorCode", 0);
         const std::string message = data.value("message", std::string(""));

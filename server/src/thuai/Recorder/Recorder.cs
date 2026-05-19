@@ -7,8 +7,6 @@ using Serilog;
 
 public class Recorder : IDisposable
 {
-    private const int MaxRecordsBeforeSave = 1000;
-
     public bool KeepRecord { get; init; }
 
     private readonly RecordPage _recordPage = new();
@@ -16,6 +14,7 @@ public class Recorder : IDisposable
     private readonly string _recordsDir;
     private readonly string _targetRecordFilePath;
     private readonly string _targetResultFilePath;
+    private readonly int _flushEveryRecords;
     private bool _disposed;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -25,10 +24,11 @@ public class Recorder : IDisposable
         WriteIndented = false
     };
 
-    public Recorder(string recordsDir = "./data", bool keepRecord = false)
+    public Recorder(string recordsDir = "./data", bool keepRecord = false, int flushEveryRecords = 1000)
     {
         _recordsDir = recordsDir;
         KeepRecord = keepRecord;
+        _flushEveryRecords = Math.Max(1, flushEveryRecords);
         _targetRecordFilePath = Path.Combine(recordsDir, "replay.dat");
         _targetResultFilePath = Path.Combine(recordsDir, "result.json");
 
@@ -44,7 +44,7 @@ public class Recorder : IDisposable
         string json = JsonSerializer.Serialize(gameState, JsonOptions);
         _recordPage.Enqueue(json);
 
-        if (_recordPage.Length >= MaxRecordsBeforeSave)
+        if (_recordPage.Length >= _flushEveryRecords)
         {
             Save();
         }

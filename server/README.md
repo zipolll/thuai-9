@@ -64,7 +64,10 @@ On first launch, the server creates `config/config.json` with default settings:
 
 ```json
 {
-  "server": { "port": 14514 },
+  "server": {
+    "port": 14514,
+    "acceptAnyToken": false
+  },
   "token": {
     "loadTokenFromEnv": true,
     "tokenLocation": "TOKENS",
@@ -99,6 +102,7 @@ On first launch, the server creates `config/config.json` with default settings:
 ```
 
 Player tokens are loaded from the `TOKENS` environment variable (comma-separated) or from a file at the path in `tokenLocation` if `loadTokenFromEnv` is `false`.
+Set `server.acceptAnyToken` to `true` to accept any non-empty player token instead of enforcing the preloaded token list.
 
 ---
 

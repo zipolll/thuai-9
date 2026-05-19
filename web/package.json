@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "serve": "node server.js",
-    "test": "node tests/candles.test.mjs"
+    "test": "node tests/run.mjs"
   },
   "dependencies": {
     "express": "^4.22.1"

@@ -16,7 +16,7 @@ npm run serve
 - `http://localhost:5173/?mode=player&token=player1`
 - `http://localhost:5173/?mode=admin&secret=YOUR_SECRET`
 
-默认 WebSocket 服务端为 `ws://localhost:14514`。页面会优先发送 `HELLO`，服务端尚未支持握手时仍可进入 legacy 联调状态。
+默认 WebSocket 服务端为 `ws://localhost:14514`。连接栏现在提供两种受限选择：固定远程地址 `ws://59.66.135.18:14514`，或任意 `localhost` 端口。页面会优先发送 `HELLO`，服务端尚未支持握手时仍可进入 legacy 联调状态。
 
 颜色配置默认采用“红涨绿跌 / 红买绿卖”，可在页面顶部切换为“绿涨红跌 / 绿买红卖”或色盲友好配色；选择会保存在浏览器本地。
 

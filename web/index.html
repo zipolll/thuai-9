@@ -58,10 +58,24 @@
 
           <label class="field">
             <span>服务器</span>
-            <div class="port-input-group">
-              <span class="port-prefix">ws://localhost:</span>
-              <input id="portInput" type="number" min="1" max="65535" step="1" value="14514" spellcheck="false">
-            </div>
+            <select id="serverPresetSelect" aria-label="服务器">
+              <option value="localhost">localhost</option>
+              <option value="remote">59.66.135.18:14514</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>本地端口</span>
+            <input
+              id="localhostPortInput"
+              type="number"
+              min="1"
+              max="65535"
+              step="1"
+              value="14514"
+              placeholder="14514"
+              spellcheck="false"
+            >
           </label>
 
           <div class="connection-credentials">

@@ -121,8 +121,8 @@ class ProtocolParserTests(unittest.TestCase):
                 "currentTick": 73,
                 "totalTicks": 300,
                 "scores": [
-                    {"token": "alpha", "score": 12},
-                    {"token": "beta", "score": 8},
+                    {"playerId": 0, "score": 12},
+                    {"playerId": 1, "score": 8},
                 ],
             }
         )
@@ -133,8 +133,8 @@ class ProtocolParserTests(unittest.TestCase):
         self.assertEqual(73, state.current_tick)
         self.assertEqual(300, state.total_ticks)
         self.assertEqual(
-            [("alpha", 12), ("beta", 8)],
-            [(score.token, score.score) for score in state.scores],
+            [(0, 12), (1, 8)],
+            [(score.player_id, score.score) for score in state.scores],
         )
 
     def test_parse_player_state_reads_nested_orders(self) -> None:
@@ -339,7 +339,7 @@ class ProtocolParserTests(unittest.TestCase):
                 "currentDay": 3,
                 "currentTick": 150,
                 "totalTicks": 300,
-                "scores": [{"token": "alpha", "score": 16}],
+                "scores": [{"playerId": 0, "score": 16}],
             },
         )
         agent._update_state(  # pylint: disable=protected-access
@@ -403,7 +403,7 @@ class ProtocolActionTests(unittest.IsolatedAsyncioTestCase):
                     "currentDay": 2,
                     "currentTick": 73,
                     "totalTicks": 300,
-                    "scores": [{"token": "alpha", "score": 12}],
+                    "scores": [{"playerId": 0, "score": 12}],
                 }
             ),
             json.dumps(

@@ -109,12 +109,9 @@ public class AdminCommandHandlerCoverageTests
 public class GameControllerRuntimeCoverageTests
 {
     [Fact]
-    public void HandleAfterPlayerConnectEvent_AddsPlayersAndRaisesOnlyForNewTokens()
+    public void HandleAfterPlayerConnectEvent_QueuesNewPlayersOnlyOnce()
     {
         var controller = new Controller(TestServerHelpers.FastSettings());
-        var connected = new List<(Guid SocketId, string Token)>();
-
-        controller.AfterPlayerConnectEvent += (_, e) => connected.Add((e.SocketId, e.Token));
 
         var firstSocket = Guid.NewGuid();
         controller.HandleAfterPlayerConnectEvent(null,
@@ -124,14 +121,11 @@ public class GameControllerRuntimeCoverageTests
         controller.HandleAfterPlayerConnectEvent(null,
             new AgentServer.AfterPlayerConnectEventArgs { SocketId = Guid.NewGuid(), Token = "beta" });
 
+        controller.Game.Tick();
+
         Assert.Equal(2, controller.Game.Players.Count);
-        Assert.Collection(connected,
-            item =>
-            {
-                Assert.Equal(firstSocket, item.SocketId);
-                Assert.Equal("alpha", item.Token);
-            },
-            item => Assert.Equal("beta", item.Token));
+        Assert.Equal("alpha", controller.Game.Players["alpha"].Token);
+        Assert.Equal("beta", controller.Game.Players["beta"].Token);
     }
 
     [Fact]
@@ -342,6 +336,52 @@ public class AgentServerRuntimeCoverageTests
         TestServerHelpers.InvokePrivate(server, "ParseMessage", Guid.NewGuid(), "{}");
         TestServerHelpers.InvokePrivate(server, "ParseMessage", Guid.NewGuid(),
             """{"messageType":"BOGUS","token":"alpha"}""");
+    }
+
+    [Fact]
+    public void ParseMessage_AcceptsAnyNonEmptyTokenWhenConfigured()
+    {
+        var server = new AgentServer
+        {
+            AdminSecret = "secret",
+            AcceptAnyToken = true
+        };
+
+        var connectEvents = new List<string>();
+        var routedMessages = new List<PerformMessage>();
+        server.AfterPlayerConnectEvent += (_, e) => connectEvents.Add(e.Token);
+        server.AfterMessageReceiveEvent += (_, e) => routedMessages.Add(e.Message);
+
+        var roles = TestServerHelpers.GetPrivateField<ConcurrentDictionary<Guid, SocketRole>>(server, "_socketRoles");
+        var tokens = TestServerHelpers.GetPrivateField<ConcurrentDictionary<Guid, string>>(server, "_socketTokens");
+
+        var playerSocket = Guid.NewGuid();
+        TestServerHelpers.InvokePrivate(server, "ParseMessage", playerSocket,
+            new HelloMessage { Role = "player", Token = "ghost" }.Json);
+        Assert.Equal(SocketRole.Player, roles[playerSocket]);
+        Assert.Equal("ghost", tokens[playerSocket]);
+
+        var blankTokenSocket = Guid.NewGuid();
+        TestServerHelpers.InvokePrivate(server, "ParseMessage", blankTokenSocket,
+            new HelloMessage { Role = "player", Token = "   " }.Json);
+        Assert.False(roles.ContainsKey(blankTokenSocket));
+
+        var compatibilitySocket = Guid.NewGuid();
+        TestServerHelpers.InvokePrivate(server, "ParseMessage", compatibilitySocket,
+            new LimitBuyMessage { Token = "late-joiner", Price = 998, Quantity = 1 }.Json);
+        Assert.Equal(SocketRole.Player, roles[compatibilitySocket]);
+        Assert.Equal("late-joiner", tokens[compatibilitySocket]);
+        Assert.Contains(routedMessages, message => message is LimitBuyMessage buy && buy.Token == "late-joiner");
+
+        var adminSocket = Guid.NewGuid();
+        TestServerHelpers.InvokePrivate(server, "ParseMessage", adminSocket,
+            new HelloMessage { Role = "admin", AdminSecret = "secret" }.Json);
+        var routedCount = routedMessages.Count;
+        TestServerHelpers.InvokePrivate(server, "ParseMessage", adminSocket,
+            new CancelOrderMessage { Token = "ghost-admin-target", OrderId = 1 }.Json);
+        Assert.Equal(routedCount + 1, routedMessages.Count);
+
+        Assert.Equal(new[] { "ghost", "late-joiner" }, connectEvents);
     }
 
     [Fact]

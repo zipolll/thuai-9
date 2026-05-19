@@ -93,10 +93,12 @@ public partial class AgentServer
 
         // Implicit player binding via the first token-bearing action message,
         // kept for backwards compatibility with SDK clients that don't send HELLO.
-        // Only pre-registered tokens are accepted.
-        if (!string.IsNullOrEmpty(message.Token) && !_socketTokens.ContainsKey(socketId))
+        // In open-token mode, any non-empty token is accepted.
+        if (!string.IsNullOrEmpty(message.Token)
+            && !_socketTokens.ContainsKey(socketId)
+            && !_socketRoles.ContainsKey(socketId))
         {
-            if (!_validTokens.ContainsKey(message.Token))
+            if (!IsTokenAllowed(message.Token))
             {
                 Log.Warning("Rejecting unknown token {Token} on socket {SocketId}", message.Token, socketId);
                 return;
@@ -131,7 +133,7 @@ public partial class AgentServer
                 }
                 break;
             case SocketRole.Admin:
-                if (string.IsNullOrEmpty(message.Token) || !_validTokens.ContainsKey(message.Token))
+                if (!IsTokenAllowed(message.Token))
                 {
                     Log.Warning("Admin {SocketId} action targets unknown token {Token}", socketId, message.Token);
                     return;
@@ -163,7 +165,7 @@ public partial class AgentServer
         switch (hello.Role?.ToLowerInvariant())
         {
             case "player":
-                if (string.IsNullOrEmpty(hello.Token) || !_validTokens.ContainsKey(hello.Token))
+                if (!IsTokenAllowed(hello.Token))
                 {
                     Log.Warning("Rejecting HELLO with invalid player token {Token} from {SocketId}",
                         hello.Token, socketId);

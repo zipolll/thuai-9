@@ -40,13 +40,15 @@ public partial class Game
 
     public void Initialize()
     {
-        Stage = GameStage.Waiting;
+        Stage = _settings.InfiniteMode ? GameStage.PreparingGame : GameStage.Waiting;
         CurrentTick = 0;
         CurrentMonthNumber = 0;
         CurrentDayNumber = 0;
         CurrentTradingDay = null;
         LatestSettlement = null;
         HasPendingSettlementNotification = false;
+        _queuedPlayerJoins.Clear();
+        _queuedPlayerRemovals.Clear();
         CardManager.Reset();
         foreach (var token in Players.Keys.ToList())
         {
@@ -59,6 +61,8 @@ public partial class Game
     {
         lock (_lock)
         {
+            ProcessQueuedPlayerChanges();
+
             switch (Stage)
             {
                 case GameStage.Waiting:

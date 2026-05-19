@@ -5,10 +5,12 @@
 using thuai::Prediction;
 using thuai::GameState;
 using thuai::protocol::buildActivateSkillMessage;
+using thuai::protocol::buildHelloMessage;
 using thuai::protocol::buildLimitBuyMessage;
 using thuai::protocol::buildSubmitReportMessage;
 using thuai::protocol::parseGameState;
 using thuai::protocol::parseNews;
+using thuai::protocol::parseDaySettlement;
 using thuai::protocol::parsePlayerState;
 using thuai::protocol::parseReportResult;
 using thuai::protocol::parseSkillEffect;
@@ -18,6 +20,12 @@ using nlohmann::json;
 namespace {
 // NOLINTBEGIN
 TEST_CASE("protocol builders serialize outbound actions") {
+    json hello = buildHelloMessage("player-1");
+    CHECK(hello["messageType"] == "HELLO");
+    CHECK(hello["token"] == "player-1");
+    CHECK(hello["role"] == "player");
+    CHECK_FALSE(hello.contains("adminSecret"));
+
     json limit_buy = buildLimitBuyMessage("player-1", 1050, 3);
     CHECK(limit_buy["messageType"] == "LIMIT_BUY");
     CHECK(limit_buy["token"] == "player-1");
@@ -49,8 +57,8 @@ TEST_CASE("game state parser reads current protocol fields") {
         {"currentTick", 88},
         {"totalTicks", 300},
         {"scores", json::array({
-            json{{"token", "alpha"}, {"score", 13}},
-            json{{"token", "beta"}, {"score", 11}},
+            json{{"playerId", 0}, {"score", 13}},
+            json{{"playerId", 1}, {"score", 11}},
         })},
     });
 
@@ -60,7 +68,7 @@ TEST_CASE("game state parser reads current protocol fields") {
     CHECK(state.currentTick == 88);
     CHECK(state.totalTicks == 300);
     REQUIRE(state.scores.size() == 2);
-    CHECK(state.scores[0].token == "alpha");
+    CHECK(state.scores[0].playerId == 0);
     CHECK(state.scores[0].score == 13);
 }
 
@@ -161,6 +169,47 @@ TEST_CASE("strategy and skill parsers handle optional fields") {
     CHECK(effect.sourcePlayer == "alpha");
     CHECK_FALSE(effect.targetPlayer.has_value());
     CHECK(effect.description == "Protected against one loss");
+}
+
+TEST_CASE("day settlement parser preserves month summary fields") {
+    thuai::DaySettlement settlement = parseDaySettlement(json{
+        {"day", 30},
+        {"month", 6},
+        {"winnerToken", "alpha"},
+        {"reason", "highest NAV"},
+        {"players", json::array({
+            json{
+                {"token", "alpha"},
+                {"nav", 2000000},
+                {"mora", 1001000},
+                {"gold", 999},
+                {"frozenMora", 0},
+                {"frozenGold", 0},
+                {"lockedGold", 0},
+                {"tradeCount", 2},
+                {"activeCards", json::array({"内幕消息"})},
+            },
+        })},
+        {"cumulativeNavs", json{
+            {"alpha", 4000000},
+        }},
+        {"finalBonusWinnerToken", "beta"},
+        {"finalBonusPoints", 2},
+    });
+
+    CHECK(settlement.day == 30);
+    CHECK(settlement.month == 6);
+    CHECK(settlement.winnerToken == "alpha");
+    CHECK(settlement.reason == "highest NAV");
+    REQUIRE(settlement.players.size() == 1);
+    CHECK(settlement.players[0].token == "alpha");
+    CHECK(settlement.players[0].tradeCount == 2);
+    REQUIRE(settlement.players[0].activeCards.size() == 1);
+    CHECK(settlement.players[0].activeCards[0] == "内幕消息");
+    REQUIRE(settlement.cumulativeNavs.size() == 1);
+    CHECK(settlement.cumulativeNavs["alpha"] == 4000000);
+    CHECK(settlement.finalBonusWinnerToken == "beta");
+    CHECK(settlement.finalBonusPoints == 2);
 }
 // NOLINTEND
 } // namespace

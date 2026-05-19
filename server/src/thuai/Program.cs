@@ -6,6 +6,7 @@ using Utility;
 using Connection;
 using GameLogic;
 using Protocol.Messages;
+using ServerRuntime = Thuai.Runtime;
 
 public class Program
 {
@@ -22,7 +23,8 @@ public class Program
             return;
         }
 
-        bool infiniteMode = args.Any(arg => string.Equals(arg, "--infinite", StringComparison.OrdinalIgnoreCase));
+        bool infiniteMode = config.Game.InfiniteMode
+            || args.Any(arg => string.Equals(arg, "--infinite", StringComparison.OrdinalIgnoreCase));
         if (infiniteMode)
         {
             config = config with { Game = config.Game with { InfiniteMode = true } };
@@ -40,12 +42,24 @@ public class Program
             var agentServer = new AgentServer
             {
                 Port = config.Server.Port,
-                AdminSecret = Environment.GetEnvironmentVariable("THUAI_ADMIN_SECRET")
+                AdminSecret = Environment.GetEnvironmentVariable("THUAI_ADMIN_SECRET"),
+                AcceptAnyToken = config.Server.AcceptAnyToken
             };
             if (!string.IsNullOrEmpty(agentServer.AdminSecret))
                 Log.Information("Admin debug interface enabled (THUAI_ADMIN_SECRET set)");
+            if (agentServer.AcceptAnyToken)
+                Log.Warning("Open token mode enabled: any non-empty player token will be accepted");
             var gameController = new GameController.GameController(config.Game);
-            using var recorder = new Recorder.Recorder("./data", config.Recorder.KeepRecord);
+            using var recorder = new Recorder.Recorder("./data", config.Recorder.KeepRecord, config.Recorder.FlushEveryRecords);
+            var disconnectedPlayerRetentionTicks = config.Game.DisconnectedPlayerRetentionTicks;
+            if (infiniteMode && disconnectedPlayerRetentionTicks <= 0)
+                disconnectedPlayerRetentionTicks = Math.Max(config.Game.TicksPerSecond * 300, 1);
+            var sessionTracker = new ServerRuntime.PlayerSessionTracker(disconnectedPlayerRetentionTicks);
+            var statisticsWriter = new Recorder.PlayerStatisticsWriter(
+                "./data",
+                saveIntervalTicks: config.Recorder.StatisticsSaveIntervalTicks);
+            if (infiniteMode)
+                Log.Information("Disconnected players will be removed after {Ticks} ticks", disconnectedPlayerRetentionTicks);
 
             // Load tokens and add players
             var tokens = Tools.LoadTokens(config.Token);
@@ -54,6 +68,8 @@ public class Program
             {
                 gameController.Game.AddPlayer(token);
                 agentServer.RegisterValidToken(token);
+                if (infiniteMode)
+                    sessionTracker.SeedDisconnected(token, currentTick: 0);
                 Log.Information("Added player: {Token}", token);
             }
 
@@ -61,16 +77,14 @@ public class Program
             // AgentServer -> GameController: player messages
             agentServer.AfterMessageReceiveEvent += gameController.HandleAfterMessageReceiveEvent;
             // AgentServer -> GameController: player connections
-            agentServer.AfterPlayerConnectEvent += gameController.HandleAfterPlayerConnectEvent;
-            // GameController -> AgentServer: link socket to token
-            gameController.AfterPlayerConnectEvent += (sender, e) =>
+            agentServer.AfterPlayerConnectEvent += (sender, e) =>
             {
-                agentServer.HandleAfterPlayerConnectEvent(sender,
-                    new AgentServer.AfterPlayerConnectEventArgs
-                    {
-                        SocketId = e.SocketId,
-                        Token = e.Token
-                    });
+                sessionTracker.MarkConnected(e.Token, gameController.Game.CurrentTick);
+                gameController.HandleAfterPlayerConnectEvent(sender, e);
+            };
+            agentServer.AfterPlayerDisconnectEvent += (sender, e) =>
+            {
+                sessionTracker.MarkDisconnected(e.Token, gameController.Game.CurrentTick);
             };
             // AgentServer -> AdminCommandHandler: debug commands from admin sockets
             agentServer.AfterAdminMessageEvent += (sender, e) =>
@@ -82,15 +96,25 @@ public class Program
             // Game -> Broadcast + Record: after each tick
             gameController.Game.AfterGameTickEvent += (sender, e) =>
             {
+                ExpireDisconnectedPlayers(e.Game, sessionTracker);
                 BroadcastGameState(agentServer, e.Game);
                 RecordGameState(recorder, e.Game);
+
+                if (e.Game.Stage == GameStage.Settlement)
+                    recorder.SaveResults(e.Game.GetScoreboardSnapshot());
+
+                var sessions = sessionTracker.GetSnapshots(e.Game.CurrentTick);
+                if (statisticsWriter.MaybeSave(e.Game, sessions))
+                    recorder.SaveResults(e.Game.GetScoreboardSnapshot());
             };
 
             // Start server
             agentServer.Start();
             gameController.Start();
 
-            Log.Information("Server running. Waiting for game to finish...");
+            Log.Information(infiniteMode
+                ? "Server running in infinite mode."
+                : "Server running. Waiting for game to finish...");
 
             // Poll until game finishes
             while (gameController.IsRunning)
@@ -102,7 +126,8 @@ public class Program
             Log.Information("Game complete. Saving results...");
             recorder.Flush();
 
-            var scores = gameController.Game.Scoreboard;
+            var scores = gameController.Game.GetScoreboardSnapshot();
+            statisticsWriter.Save(gameController.Game, sessionTracker.GetSnapshots(gameController.Game.CurrentTick));
             recorder.SaveResults(scores);
 
             foreach (var (token, score) in scores)
@@ -121,6 +146,15 @@ public class Program
         finally
         {
             Log.CloseAndFlush();
+        }
+    }
+
+    private static void ExpireDisconnectedPlayers(Game game, ServerRuntime.PlayerSessionTracker sessionTracker)
+    {
+        foreach (var token in sessionTracker.CollectExpiredTokens(game.CurrentTick))
+        {
+            if (game.QueuePlayerRemoval(token))
+                Log.Information("Player {Token} queued for removal after disconnect timeout", token);
         }
     }
 

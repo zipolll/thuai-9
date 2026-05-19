@@ -118,13 +118,14 @@ public class ProtocolMessageTests
             TotalTicks = 300,
             Scores =
             [
-                new PlayerScore { Token = "alpha", Score = 14 },
-                new PlayerScore { Token = "beta", Score = 9 }
+                new PlayerScore { PlayerId = 0, Score = 14 },
+                new PlayerScore { PlayerId = 1, Score = 9 }
             ]
         });
         Assert.Equal(3, gameState.GetProperty("currentMonth").GetInt32());
         Assert.Equal(2, gameState.GetProperty("currentDay").GetInt32());
         Assert.Equal(2, gameState.GetProperty("scores").GetArrayLength());
+        Assert.Equal(0, gameState.GetProperty("scores")[0].GetProperty("playerId").GetInt32());
 
         var news = ParseJson(new NewsBroadcastMessage
         {

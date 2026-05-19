@@ -24,6 +24,9 @@ public record ServerSettings
 {
     [JsonPropertyName("port")]
     public int Port { get; init; } = 14514;
+
+    [JsonPropertyName("acceptAnyToken")]
+    public bool AcceptAnyToken { get; init; } = false;
 }
 
 public record TokenSettings
@@ -76,6 +79,9 @@ public record GameSettings
     [JsonPropertyName("playerWaitingTicks")]
     public int PlayerWaitingTicks { get; init; } = 200;
 
+    [JsonPropertyName("disconnectedPlayerRetentionTicks")]
+    public int DisconnectedPlayerRetentionTicks { get; init; } = 0;
+
     [JsonPropertyName("initialMora")]
     public long InitialMora { get; init; } = 1_000_000;
 
@@ -126,4 +132,10 @@ public record RecorderSettings
 {
     [JsonPropertyName("keepRecord")]
     public bool KeepRecord { get; init; } = false;
+
+    [JsonPropertyName("flushEveryRecords")]
+    public int FlushEveryRecords { get; init; } = 1000;
+
+    [JsonPropertyName("statisticsSaveIntervalTicks")]
+    public int StatisticsSaveIntervalTicks { get; init; } = 100;
 }

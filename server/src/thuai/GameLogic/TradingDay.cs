@@ -221,6 +221,17 @@ public class TradingDay
             .ToList();
     }
 
+    public void CancelPlayerOrders(string playerToken)
+    {
+        lock (_lock)
+        {
+            foreach (var order in GetPlayerPendingOrders(playerToken))
+            {
+                _matchEngine.CancelOrder(playerToken, order.OrderId);
+            }
+        }
+    }
+
     public int GetPlayerTradeCount(string playerToken)
     {
         return _players.TryGetValue(playerToken, out var player)

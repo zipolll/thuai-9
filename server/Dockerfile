@@ -12,5 +12,5 @@ RUN dotnet publish src/thuai \
 FROM mcr.microsoft.com/dotnet/runtime:9.0-alpine3.21
 WORKDIR /app
 COPY --from=build-env /app/bin/server .
-ENTRYPOINT ["./server"]
+ENTRYPOINT ["./server", "--infinite"]
 EXPOSE 14514

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -30,7 +31,7 @@ struct CardOption {
 };
 
 struct PlayerScore {
-  std::string token;
+  int playerId = 0;
   int score = 0;
 };
 
@@ -107,6 +108,29 @@ struct SkillEffect {
   std::string sourcePlayer;
   std::optional<std::string> targetPlayer;
   std::string description;
+};
+
+struct DaySettlementPlayer {
+  std::string token;
+  std::int64_t nav = 0;
+  std::int64_t mora = 0;
+  int gold = 0;
+  std::int64_t frozenMora = 0;
+  int frozenGold = 0;
+  int lockedGold = 0;
+  int tradeCount = 0;
+  std::vector<std::string> activeCards;
+};
+
+struct DaySettlement {
+  int day = 0;
+  int month = 0;
+  std::string winnerToken;
+  std::string reason;
+  std::vector<DaySettlementPlayer> players;
+  std::map<std::string, std::int64_t> cumulativeNavs;
+  std::string finalBonusWinnerToken;
+  int finalBonusPoints = 0;
 };
 
 enum class Prediction { Long, Short, Hold };

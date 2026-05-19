@@ -23,6 +23,7 @@ public class UtilityCoverageTests
 
             Assert.True(File.Exists(path));
             Assert.Equal(14514, config.Server.Port);
+            Assert.False(config.Server.AcceptAnyToken);
         }
         finally
         {
@@ -38,12 +39,13 @@ public class UtilityCoverageTests
         {
             var path = Path.Combine(dir, "config.json");
             File.WriteAllText(path, """
-                {"server":{"port":20001},"token":{"loadTokenFromEnv":false,"tokenLocation":"tokens.txt","tokenDelimiter":"|"},"log":{"target":"File","minimumLevel":"Debug","targetDirectory":"./tmp","rollingInterval":"Hour"},"game":{"ticksPerSecond":30},"recorder":{"keepRecord":true}}
+                {"server":{"port":20001,"acceptAnyToken":true},"token":{"loadTokenFromEnv":false,"tokenLocation":"tokens.txt","tokenDelimiter":"|"},"log":{"target":"File","minimumLevel":"Debug","targetDirectory":"./tmp","rollingInterval":"Hour"},"game":{"ticksPerSecond":30},"recorder":{"keepRecord":true}}
                 """);
 
             var config = Tools.LoadOrCreateConfig(path);
 
             Assert.Equal(20001, config.Server.Port);
+            Assert.True(config.Server.AcceptAnyToken);
             Assert.False(config.Token.LoadTokenFromEnv);
             Assert.Equal("|", config.Token.TokenDelimiter);
             Assert.True(config.Recorder.KeepRecord);
@@ -90,11 +92,43 @@ public class UtilityCoverageTests
     }
 
     [Fact]
+    public void LoadTokens_ReturnsEmptyWhenConfiguredSourceIsMissing()
+    {
+        var envName = $"THUAI_TEST_{Guid.NewGuid():N}";
+        var original = Environment.GetEnvironmentVariable(envName);
+
+        try
+        {
+            Environment.SetEnvironmentVariable(envName, null);
+            var fromMissingEnv = Tools.LoadTokens(new TokenSettings
+            {
+                LoadTokenFromEnv = true,
+                TokenLocation = envName,
+                TokenDelimiter = ","
+            });
+            Assert.Empty(fromMissingEnv);
+
+            var missingFile = Path.Combine(TempDir(), "missing-tokens.txt");
+            var fromMissingFile = Tools.LoadTokens(new TokenSettings
+            {
+                LoadTokenFromEnv = false,
+                TokenLocation = missingFile,
+                TokenDelimiter = ","
+            });
+            Assert.Empty(fromMissingFile);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(envName, original);
+        }
+    }
+
+    [Fact]
     public void Config_RoundTripPreservesSections()
     {
         var config = new Config
         {
-            Server = new ServerSettings { Port = 18080 },
+            Server = new ServerSettings { Port = 18080, AcceptAnyToken = true },
             Token = new TokenSettings { LoadTokenFromEnv = false, TokenLocation = "tokens.txt", TokenDelimiter = ";" },
             Log = new LogSettings { Target = "Both", MinimumLevel = "Warning", TargetDirectory = "./logs", RollingInterval = "Month" },
             Game = new GameSettings { TicksPerSecond = 20, InitialGold = 777 },
@@ -105,6 +139,7 @@ public class UtilityCoverageTests
         var roundTrip = JsonSerializer.Deserialize<Config>(json)!;
 
         Assert.Equal(18080, roundTrip.Server.Port);
+        Assert.True(roundTrip.Server.AcceptAnyToken);
         Assert.False(roundTrip.Token.LoadTokenFromEnv);
         Assert.Equal(";", roundTrip.Token.TokenDelimiter);
         Assert.Equal("Both", roundTrip.Log.Target);

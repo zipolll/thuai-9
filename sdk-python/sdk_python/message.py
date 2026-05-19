@@ -125,7 +125,7 @@ def parse_game_state(data: JsonObject) -> GameState:
     """Convert a wire-format game-state payload into a SDK model."""
 
     scores = [
-        PlayerScore(_require_str(score, "token"), _require_int(score, "score"))
+        PlayerScore(_require_int(score, "playerId"), _require_int(score, "score"))
         for score in _require_object_list(data, "scores")
     ]
     return GameState(

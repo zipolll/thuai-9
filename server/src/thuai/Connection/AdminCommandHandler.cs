@@ -30,7 +30,7 @@ public static class AdminCommandHandler
 
     private static DebugQueryResponseMessage HandleQuery(Game game, DebugQueryMessage _)
     {
-        var players = game.Players.Values.Select(p => new DebugPlayerSnapshot
+        var players = game.GetPlayersSnapshot().Select(p => new DebugPlayerSnapshot
         {
             Token = p.Token,
             Mora = p.Mora,
@@ -55,8 +55,8 @@ public static class AdminCommandHandler
             CurrentMonth = game.CurrentMonthNumber,
             CurrentDay = game.CurrentDayNumber,
             CurrentTick = game.CurrentTick,
-            Scoreboard = new Dictionary<string, int>(game.Scoreboard),
-            CumulativeNavs = new Dictionary<string, long>(game.CumulativeNavs),
+            Scoreboard = game.GetScoreboardSnapshot(),
+            CumulativeNavs = game.GetCumulativeNavsSnapshot(),
             Players = players,
             Draft = draft
         };

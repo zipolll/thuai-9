@@ -59,7 +59,7 @@ class CardOption:
 class PlayerScore:
     """Scoreboard entry for a single player."""
 
-    token: str
+    player_id: int
     score: int
 
 

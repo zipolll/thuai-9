@@ -17,6 +17,7 @@ public partial class AgentServer
 {
     public int Port { get; init; } = 14514;
     public string? AdminSecret { get; set; }
+    public bool AcceptAnyToken { get; set; }
 
     private WebSocketServer? _wsServer;
     private readonly ConcurrentDictionary<Guid, IWebSocketConnection> _sockets = new();
@@ -29,6 +30,14 @@ public partial class AgentServer
     {
         if (!string.IsNullOrEmpty(token))
             _validTokens.TryAdd(token, 0);
+    }
+
+    private bool IsTokenAllowed(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return false;
+
+        return AcceptAnyToken || _validTokens.ContainsKey(token);
     }
 
     private readonly ConcurrentDictionary<Guid, ConcurrentQueue<string>> _socketRawTextReceivingQueue = new();

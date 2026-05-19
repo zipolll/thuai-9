@@ -1,9 +1,10 @@
 {
   "server": {
-    "port": 14514
+    "port": 14514,
+    "acceptAnyToken": true
   },
   "token": {
-    "loadTokenFromEnv": false,
+    "loadTokenFromEnv": true,
     "tokenLocation": "TOKENS",
     "tokenDelimiter": ","
   },
@@ -17,9 +18,11 @@
     "ticksPerSecond": 10,
     "tradingDayTicks": 30,
     "tradingDayCount": 3,
+    "infiniteMode": true,
     "strategySelectionTicks": 40,
     "minimumPlayerCount": 2,
     "playerWaitingTicks": 200,
+    "disconnectedPlayerRetentionTicks": 0,
     "initialMora": 1000000,
     "initialGold": 1000,
     "initialGoldPrice": 1000,
@@ -37,6 +40,8 @@
     "npcOrdersPerTick": 3
   },
   "recorder": {
-    "keepRecord": false
+    "keepRecord": false,
+    "flushEveryRecords": 1000,
+    "statisticsSaveIntervalTicks": 100
   }
 }

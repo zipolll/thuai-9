@@ -20,7 +20,14 @@ public partial class GameController
         var player = Game.FindPlayer(token);
         if (player == null)
         {
-            Log.Warning("Message from unknown player token: {Token}", token);
+            if (Game.QueuePlayerJoin(token))
+            {
+                Log.Information("Player {Token} queued to join from an action message", token);
+            }
+            else
+            {
+                Log.Warning("Message from unknown player token: {Token}", token);
+            }
             return;
         }
 
@@ -58,19 +65,18 @@ public partial class GameController
 
     /// <summary>
     /// Called when AgentServer identifies a new player connection.
-    /// Adds the player to the game and re-raises the event for other listeners.
+    /// Queues the player to (re)join the game if needed.
     /// </summary>
     public void HandleAfterPlayerConnectEvent(object? sender, AgentServer.AfterPlayerConnectEventArgs e)
     {
-        if (Game.AddPlayer(e.Token))
+        if (Game.FindPlayer(e.Token) != null)
         {
-            Log.Information("Player {Token} added to game", e.Token);
-            AfterPlayerConnectEvent?.Invoke(this, new AfterPlayerConnectEventArgs
-            {
-                SocketId = e.SocketId,
-                Token = e.Token
-            });
+            Log.Information("Player {Token} connected", e.Token);
+            return;
         }
+
+        if (Game.QueuePlayerJoin(e.Token))
+            Log.Information("Player {Token} queued to join the running game", e.Token);
     }
 
     private void HandleLimitBuy(string token, LimitBuyMessage msg)

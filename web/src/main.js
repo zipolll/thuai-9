@@ -28,6 +28,7 @@ import {
   setConnectionPatch,
   setMode,
 } from "./store.js";
+import { buildServerUrl, normalizeLocalhostPort, openWebSocket } from "./connection.js";
 import {
   handleMarketChartPointerDown,
   handleMarketChartPointerMove,
@@ -99,9 +100,22 @@ function bindControls() {
     }
   });
 
-  document.getElementById("portInput")?.addEventListener("change", (event) => {
-    const port = event.target.value.trim() || "14514";
-    setConnectionPatch(state, { server: `ws://localhost:${port}` });
+  document.getElementById("serverPresetSelect")?.addEventListener("change", (event) => {
+    const mode = event.target.value === "remote" ? "remote" : "localhost";
+    setConnectionPatch(state, {
+      server: buildServerUrl(mode, state.connection.localhostPort),
+    });
+    updateRoute();
+    renderApp(state);
+  });
+
+  document.getElementById("localhostPortInput")?.addEventListener("change", (event) => {
+    const localhostPort = normalizeLocalhostPort(event.target.value);
+    const mode = currentServerMode();
+    setConnectionPatch(state, {
+      localhostPort,
+      server: buildServerUrl(mode, localhostPort),
+    });
     updateRoute();
     renderApp(state);
   });
@@ -204,9 +218,10 @@ function handleSummaryInteraction(event) {
   showSummaryDetail(button.dataset.summaryDay);
 }
 
-function serverUrlFromPort() {
-  const port = document.getElementById("portInput")?.value.trim() || "14514";
-  return `ws://localhost:${port}`;
+function currentServerMode() {
+  return document.getElementById("serverPresetSelect")?.value === "remote"
+    ? "remote"
+    : "localhost";
 }
 
 function connect() {
@@ -217,11 +232,15 @@ function connect() {
     ws.close();
   }
 
-  const server = serverUrlFromPort();
+  const localhostPort = normalizeLocalhostPort(
+    document.getElementById("localhostPortInput")?.value || state.connection.localhostPort,
+  );
+  const server = buildServerUrl(currentServerMode(), localhostPort);
   const token = document.getElementById("tokenInput")?.value.trim() || state.connection.token;
   const adminSecret = document.getElementById("adminSecretInput")?.value.trim() || state.connection.adminSecret;
   setConnectionPatch(state, {
     server,
+    localhostPort,
     token,
     adminSecret,
     status: "connecting",
@@ -231,7 +250,7 @@ function connect() {
   renderApp(state);
 
   try {
-    ws = new WebSocket(server);
+    ws = openWebSocket(server);
   } catch (error) {
     handleSocketError(error);
     return;

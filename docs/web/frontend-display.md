@@ -21,6 +21,13 @@
 - `web/index.html?mode=observer`
 - `web/index.html?mode=player&token=player1`
 
+连接面板默认提供两个 WebSocket 地址选项：
+
+- `ws://localhost:14514`
+- `ws://59.66.135.18:14514`
+
+其中本地连接允许修改 `localhost` 的端口，但不允许切换到其他主机名。
+
 ## Observer 页面
 
 Observer 页面面向大屏和裁判台，默认不需要 token。

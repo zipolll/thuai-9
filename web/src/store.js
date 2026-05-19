@@ -6,6 +6,12 @@ import {
   normalizeInterval,
 } from "./candles.js";
 import { DEFAULT_COLOR_SCHEME, normalizeColorScheme } from "./appearance.js";
+import {
+  DEFAULT_LOCALHOST_PORT,
+  DEFAULT_SERVER_URL,
+  normalizeServerUrl,
+  parseServerChoice,
+} from "./connection.js";
 
 const MAX_EVENTS = 160;
 const MAX_MARKET_HISTORY = 8000;
@@ -17,14 +23,15 @@ export function routeFromLocation(location) {
   const pathMode = location.pathname.includes("player") ? "player" : "observer";
   const mode = search.get("mode") || pathMode;
   const role = mode === "player" ? "player" : mode === "admin" ? "admin" : "observer";
-  const rawServer = search.get("server") || "ws://localhost:14514";
-  const portMatch = rawServer.match(/:(\d+)$/);
-  const port = portMatch ? portMatch[1] : "14514";
+  const rawServer = search.get("server") || DEFAULT_SERVER_URL;
+  const server = normalizeServerUrl(rawServer);
+  const serverChoice = parseServerChoice(server);
   return {
     role,
     token: search.get("token") || "player1",
     adminSecret: search.get("secret") || "",
-    server: `ws://localhost:${port}`,
+    server,
+    localhostPort: serverChoice.localhostPort,
   };
 }
 
@@ -34,7 +41,8 @@ export function createInitialState(route = {}) {
       role: route.role || "observer",
       token: route.token || "player1",
       adminSecret: route.adminSecret || "",
-      server: route.server || "ws://localhost:14514",
+      server: route.server || DEFAULT_SERVER_URL,
+      localhostPort: route.localhostPort || DEFAULT_LOCALHOST_PORT,
       status: "idle",
       protocolVersion: "legacy",
       capabilities: [],

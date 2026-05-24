@@ -18,11 +18,15 @@ export function debugQueryMessage() {
 }
 
 export function debugGiveCardMessage(targetPlayerId, cardName) {
-  return {
+  const message = {
     messageType: "DEBUG_GIVE_CARD",
-    targetPlayerId: Number(targetPlayerId),
     cardName,
   };
+  const id = toPlayerId(targetPlayerId);
+  if (id !== undefined) {
+    message.targetPlayerId = id;
+  }
+  return message;
 }
 
 export function debugInjectNewsMessage(sentiment, content) {
@@ -35,8 +39,12 @@ export function debugAdvanceStageMessage() {
   return { messageType: "DEBUG_ADVANCE_STAGE" };
 }
 
-export function debugSetPlayerMessage(targetToken, { mora, gold } = {}) {
-  const message = { messageType: "DEBUG_SET_PLAYER", targetToken };
+export function debugSetPlayerMessage(targetPlayerId, { mora, gold } = {}) {
+  const message = { messageType: "DEBUG_SET_PLAYER" };
+  const id = toPlayerId(targetPlayerId);
+  if (id !== undefined) {
+    message.targetPlayerId = id;
+  }
   if (mora !== undefined && mora !== null && mora !== "") message.mora = Number(mora);
   if (gold !== undefined && gold !== null && gold !== "") message.gold = Number(gold);
   return message;
@@ -91,8 +99,9 @@ export function activateSkillMessage(token, skillName, targetPlayerId) {
     token,
     skillName,
   };
-  if (targetPlayerId !== undefined && targetPlayerId !== null && targetPlayerId !== "") {
-    message.targetPlayerId = Number(targetPlayerId);
+  const id = toPlayerId(targetPlayerId);
+  if (id !== undefined) {
+    message.targetPlayerId = id;
   }
   return message;
 }
@@ -107,4 +116,10 @@ export function sendJson(ws, message) {
 function toInteger(value) {
   const number = Number.parseInt(value, 10);
   return Number.isFinite(number) ? number : 0;
+}
+
+function toPlayerId(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : undefined;
 }

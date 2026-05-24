@@ -19,6 +19,7 @@ import {
   clearSettlement,
   createInitialState,
   markNewsAsRead,
+  playerDisplayName,
   pushEvent,
   resetUiCollections,
   routeFromLocation,
@@ -94,9 +95,9 @@ function bindControls() {
       return;
     }
 
-    const playerButton = event.target.closest("[data-player-token]");
+    const playerButton = event.target.closest("[data-player-id]");
     if (playerButton) {
-      showPlayerDetail(playerButton.dataset.playerToken);
+      showPlayerDetail(Number(playerButton.dataset.playerId));
     }
   });
 
@@ -498,8 +499,8 @@ function showSummaryDetail(day) {
   openModal("detailModal");
 }
 
-function showPlayerDetail(token) {
-  const player = state.playerSummaries[token];
+function showPlayerDetail(playerId) {
+  const player = state.playerSummaries[playerId];
   if (!player) return;
   const body = document.getElementById("detailModalBody");
   const title = document.getElementById("detailModalTitle");
@@ -507,7 +508,7 @@ function showPlayerDetail(token) {
   if (!body || !title || !eyebrow) return;
 
   eyebrow.textContent = "操盘手";
-  title.textContent = `${token} 摘要`;
+  title.textContent = `${playerDisplayName(state, playerId)} 摘要`;
   body.innerHTML = `
     <section class="detail-section">
       <h3>当前状态</h3>

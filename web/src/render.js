@@ -395,7 +395,7 @@ function renderDailySummaries(state) {
       <article class="day-summary">
         <div class="day-summary-head">
           <strong>Day ${escapeHtml(summary.day)}</strong>
-          <span>Winner: ${escapeHtml(playerDisplayName(state, summary.winnerPlayerId) || "Tie")}</span>
+          <span>Winner: ${escapeHtml(summary.winnerPlayerId >= 0 ? playerDisplayName(state, summary.winnerPlayerId) : "Tie")}</span>
           <button type="button" class="summary-link ghost-button" data-action="open-summary" data-summary-day="${escapeAttribute(summary.day)}">查看完整总结</button>
         </div>
       </article>
